@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  A CPU Utilization Alarm, accompanying SNS topic, and
+  lambda function surveying current queries on RDS.
+
+
+Parameters:
+  DBInstanceID:
+    Description: RDS Instance ID.
+    Type: String
+    Default: dev
+  UtilizationAlarmThreshold:
+    Description: The spending threshold before the sample spending alarm is triggered.
+    Default: 85
+    Type: Number
+
+Resources:
+
+  AlarmFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: Postgres-High-Utilization-Alarm-Function
+      Handler: lambda_func.event_handler
+      Runtime: python3.9
+      CodeUri: .
+      Events:
+        AlarmTopic: 
+          Type: SNS
+          Properties:
+            Topic: !Ref AlarmTopic
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: Postgres High Utilization Alarm Topic
+      TopicName: Postgres-High-Utilization-Alarm-Topic
+
+  AlarmTopicFunctionSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt AlarmFunction.Arn
+      Protocol: lambda
+      TopicArn: !Ref AlarmTopic
+
+  UtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: !Sub "Alarm if utilization is over ${UtilizationAlarmThreshold}"
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions:
+      - Name: DBInstanceIdentifier
+        Value: !Ref DBInstanceID
+      Statistic: Average
+      Period: '60'
+      EvaluationPeriods: '3'
+      Threshold:
+        Ref: UtilizationAlarmThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+      - Ref: AlarmTopic
+      InsufficientDataActions:
+      - Ref: AlarmTopic

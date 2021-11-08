@@ -18,7 +18,7 @@ def event_handler(event, context=None):
 
     # Maybe get relevant info from event?
 
-    return
+    return {"status": 200, "body": "High utilization"}
 
 
 def query_information():
