@@ -7,24 +7,31 @@ Author: Nick Tallant
 This file contains a Lambda function that: 
   1. Receives an event of high CPU utilization of an RDS Postgresql instance from an SNS topic.
   2. Queries the RDS Postgresql instance for active queries.
-  3. Emails that query information to selected emails.
+  3. Logs that query information for analysis. 
 """
+import os
+import json
+import psycopg2
 
+psql_args = {
+    k: os.environ[k] for k in ["dbname", "user", "password", "host", "port"]
+}
 
-def event_handler(event, context=None):
-    """Receives an event, queries the DB, and emails out revelant information.
+def event_handler(event=None, context=None):
+    """Sends out activity stats from PG catalog when receiving an event."""
 
-    """
+    data = None
+    with psycopg2.connect(**psql_args) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT sa.* FROM pg_catalog.pg_stat_activity sa;")
+            data = cur.fetchall()
+            names = [d[0] for d in cur.description]
+    assert data, "No data returned from high utilization query"
 
-    # Maybe get relevant info from event?
+    db_stats = [dict(zip(names, row)) for row in data]
 
-    return {"status": 200, "body": "High utilization"}
+    # stdout goes to Lambda logs.
+    print(db_stats)
 
-
-def query_information():
-    pass
-
-
-def email_results():
-    pass
+    return {"status": 200, "body": json.dumps(db_stats, default=str)}
 

@@ -5,7 +5,6 @@ Description: >
   A CPU Utilization Alarm, accompanying SNS topic, and
   lambda function surveying current queries on RDS.
 
-
 Parameters:
   DBInstanceID:
     Description: RDS Instance ID.
@@ -15,21 +14,56 @@ Parameters:
     Description: The spending threshold before the sample spending alarm is triggered.
     Default: 85
     Type: Number
+  DBName:
+    Description: Name of the Postgres DB.
+    Type: String
+    Default: postgres
+  DBUser:
+    Description: User accessing the DB.
+    Type: String
+    Default: postgres
+  DBPassword:
+    Description: User accessing the DB.
+    Type: String
+  DBHost:
+    Description: User accessing the DB.
+    Type: String
+  DBPort:
+    Description: User accessing the DB.
+    Type: String
+    Default: 5432
+  LambdaSecurityGroupIds:
+    Description: A comma separated list of security group IDs for the Lambda Function.
+    Type: CommaDelimitedList
+  LambdaSubnetIds:
+    Description: A comma separated list of subnets for Lambda Function.
+    Type: CommaDelimitedList
 
 Resources:
-
   AlarmFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: Postgres-High-Utilization-Alarm-Function
       Handler: lambda_func.event_handler
       Runtime: python3.9
+      Timeout: 180
       CodeUri: .
+      Environment:
+        Variables:
+          dbname: !Ref DBName
+          user: !Ref DBUser
+          password: !Ref DBPassword
+          host: !Ref DBHost
+          port: !Ref DBPort
+      VpcConfig:
+        SecurityGroupIds: !Ref LambdaSecurityGroupIds
+        SubnetIds: !Ref LambdaSubnetIds
       Events:
         AlarmTopic: 
           Type: SNS
           Properties:
             Topic: !Ref AlarmTopic
+
   AlarmTopic:
     Type: AWS::SNS::Topic
     Properties: 
